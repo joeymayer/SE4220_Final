@@ -15,10 +15,10 @@ cd /opt/se4220/gcp-gallery/app
 pip3 install --no-cache-dir -r requirements.txt
 
 # ---- database variables -----------------------------------------------------
-export DB_HOST="${google_sql_database_instance.db_instance.private_ip_address}"
+export DB_HOST="${db_host}"
+export DB_USER="${db_user}"
+export DB_PASS="${db_pass}"
 export DB_NAME="gallery"
-export DB_USER="${var.db_user}"
-export DB_PASS="${var.db_password}"
 
 # ---- initialise schema (idempotent) -----------------------------------------
 mysql -h "$DB_HOST" -u "$DB_USER" -p"$DB_PASS" <<'SQL'
