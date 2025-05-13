@@ -8,7 +8,7 @@ variable "region" {
   type        = string
   default     = "us-central1"
   validation {
-    condition     = contains(["us-central1","us-east1","us-west1"], var.region)
+    condition     = contains(["us-central1", "us-east1", "us-west1"], var.region)
     error_message = "Region must be one of the allowed values."
   }
 }
@@ -22,7 +22,7 @@ variable "vpc_name" {
 variable "vpc_cidr" {
   description = "CIDR range for the VPC custom subnet"
   type        = string
-  default     = "10.0.0.0/16"                # as required
+  default     = "10.0.0.0/16" # as required
 }
 
 variable "subnet_name" {
@@ -46,7 +46,7 @@ variable "vm_name" {
 variable "vm_machine_type" {
   description = "Machine type for the VM"
   type        = string
-  default     = "e2-standard-2"             # as required
+  default     = "e2-standard-2" # as required
 }
 
 variable "vm_zone" {
@@ -64,7 +64,7 @@ variable "db_instance_name" {
 variable "db_tier" {
   description = "Tier (machine type) for Cloud SQL instance"
   type        = string
-  default     = "db-n1-standard-1"          # as required (2nd gen)
+  default     = "db-n1-standard-1" # as required (2nd gen)
 }
 
 variable "db_user" {

@@ -1,8 +1,8 @@
 resource "google_compute_instance" "web_vm" {
   name         = var.vm_name
-  machine_type = var.vm_machine_type          # e2-standard-2
+  machine_type = var.vm_machine_type # e2-standard-2
   zone         = var.vm_zone
-  tags         = ["web-server"]               # matches firewall rule
+  tags         = ["web-server"] # matches firewall rule
 
   boot_disk {
     initialize_params {
@@ -20,7 +20,7 @@ resource "google_compute_instance" "web_vm" {
 
   service_account {
     email  = google_service_account.vm_service_account.email
-    scopes = ["cloud-platform"]               # IAM roles still limit access
+    scopes = ["cloud-platform"] # IAM roles still limit access
   }
 
   # Pull the script contents from an external file to avoid CRLF issues

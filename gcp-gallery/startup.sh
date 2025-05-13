@@ -1,9 +1,9 @@
 set -euo pipefail
 
 # ---- system setup -----------------------------------------------------------
+export DEBIAN_FRONTEND=noninteractive       # skip any install prompts
 apt-get update -y
-apt-get install -y git python3 python3-pip mysql-client
-
+apt-get install -y git python3 python3-pip default-mysql-client
 # ---- fetch application code -------------------------------------------------
 git clone https://github.com/joeymayer/SE4220_Final.git /opt/se4220 || {
   echo "Git clone failed."
