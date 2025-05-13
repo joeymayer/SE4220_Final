@@ -22,34 +22,43 @@ resource "google_compute_instance" "web_vm" {
     scopes = ["cloud-platform"]   # broad scope, but IAM roles restrict actual permissions
   }
 
-  metadata_startup_script = <<-EOT
-    #!/bin/bash
-    # Update and install necessary packages
-    apt-get update -y
-    apt-get install -y git python3 python3-pip mysql-client
+ metadata_startup_script = <<-EOT
+  #!/bin/bash
+  set -e                      # exit on any error for safety
 
-    # Fetch application code from GitHub (replace URL with Joey's repo if available)
-    git clone https://github.com/joeymayer/gallery-app.git /opt/gallery-app || {
-      echo "Git clone failed, exiting startup script."
-      exit 1
-    }
+  # Update system and install packages
+  apt-get update -y
+  apt-get install -y git python3 python3-pip mysql-client
 
-    # Install Python dependencies
-    pip3 install -r /opt/gallery-app/requirements.txt
+  # Clone your repo
+  git clone https://github.com/joeymayer/SE4220_Final.git /opt/se4220 || {
+    echo "Git clone failed, exiting startup script."
+    exit 1
+  }
 
-    # Set environment variables for DB connection
-    export DB_HOST="${google_sql_database_instance.db_instance.private_ip_address}"
-    export DB_NAME="gallery"
-    export DB_USER="${var.db_user}"
-    export DB_PASS="${var.db_password}"
+  # Go to the Flask app directory
+  cd /opt/se4220/gcp-gallery/app
 
-    # Initialize database schema (if not already initialized)
-    mysql -h "$DB_HOST" -u "$DB_USER" -p"$DB_PASS" -e "CREATE DATABASE IF NOT EXISTS gallery; USE gallery; CREATE TABLE IF NOT EXISTS images(id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(100));"
+  # Install Python dependencies
+  pip3 install --no-cache-dir -r requirements.txt
 
-    # Start the Flask application (listen on all interfaces, port 80)
-    export FLASK_APP=/opt/gallery-app/app.py
-    flask run --host=0.0.0.0 --port=80
-  EOT
+  # Export DB connection environment variables
+  export DB_HOST="${google_sql_database_instance.db_instance.private_ip_address}"
+  export DB_NAME="gallery"
+  export DB_USER="${var.db_user}"
+  export DB_PASS="${var.db_password}"
+
+  # Initialize DB schema (idempotent if run again)
+  mysql -h "$DB_HOST" -u "$DB_USER" -p"$DB_PASS" -e \
+    "CREATE DATABASE IF NOT EXISTS gallery;
+     USE gallery;
+     CREATE TABLE IF NOT EXISTS images(id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(100));"
+
+  # Start the Flask application (port 80)
+  export FLASK_APP=app.py
+  flask run --host=0.0.0.0 --port=80
+EOT
+
 
   depends_on = [google_sql_database_instance.db_instance]
 }
