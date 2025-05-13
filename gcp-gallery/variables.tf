@@ -70,7 +70,7 @@ variable "db_tier" {
 variable "db_user" {
   description = "Database admin username"
   type        = string
-  default     = "root"
+  default     = "galleryuser"
 }
 
 variable "db_password" {
