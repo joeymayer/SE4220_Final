@@ -1,4 +1,8 @@
 import os
+DB_HOST = os.getenv("DB_HOST")
+DB_NAME = os.getenv("DB_NAME", "gallery")
+DB_USER = os.getenv("DB_USER")
+DB_PASS = os.getenv("DB_PASS")
 from google.cloud.sql.connector import Connector
 import pymysql
 import io

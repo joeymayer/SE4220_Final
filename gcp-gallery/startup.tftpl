@@ -9,10 +9,11 @@ git clone https://github.com/joeymayer/SE4220_Final.git /opt/se4220 || {
   echo "Git clone failed."
   exit 1
 }
-cd /opt/se4220/gcp-gallery/app
+APP_DIR="/opt/se4220/photogallery"       # <-- new location
+cd "$APP_DIR"
 
 # ---- python dependencies ----------------------------------------------------
-pip3 install --no-cache-dir -r requirements.txt
+pip3 install --no-cache-dir -r "$APP_DIR/requirements.txt"
 
 # ---- database variables -----------------------------------------------------
 export DB_HOST="${db_host}"
@@ -24,9 +25,11 @@ export DB_NAME="gallery"
 mysql -h "$DB_HOST" -u "$DB_USER" -p"$DB_PASS" <<'SQL'
 CREATE DATABASE IF NOT EXISTS gallery;
 USE gallery;
-CREATE TABLE IF NOT EXISTS images (
-  id   INT AUTO_INCREMENT PRIMARY KEY,
-  name VARCHAR(100)
+
+CREATE TABLE IF NOT EXISTS photos (
+  id        INT AUTO_INCREMENT PRIMARY KEY,
+  filename  VARCHAR(255),
+  uploaded  DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 SQL
 
