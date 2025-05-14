@@ -23,14 +23,14 @@ resource "google_compute_instance" "web_vm" {
     scopes = ["cloud-platform"] # IAM roles still limit access
   }
 
-metadata_startup_script = templatefile(
-  "${path.module}/startup.tftpl",
-  {
-    db_host = google_sql_database_instance.db_instance.private_ip_address
-    db_user = var.db_user
-    db_pass = var.db_password
-  }
-)
+  metadata_startup_script = templatefile(
+    "${path.module}/startup.tftpl",
+    {
+      db_host = google_sql_database_instance.db_instance.private_ip_address
+      db_user = var.db_user
+      db_pass = var.db_password
+    }
+  )
 
   depends_on = [google_sql_database_instance.db_instance]
 }

@@ -1,0 +1,22 @@
+<!-- templates/item_detail.html -->
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Item Detail</h2>
+
+{% if item %}
+  <ul class="list-group">
+    {% for key, value in item.items() %}
+      {% if key != 'id' %}
+        <li class="list-group-item">
+          <strong>{{ key.replace('_', ' ').title() }}:</strong> {{ value }}
+        </li>
+      {% endif %}
+    {% endfor %}
+  </ul>
+{% else %}
+  <p>Item not found.</p>
+{% endif %}
+
+<a href="{{ url_for('sections') }}" class="btn btn-secondary mt-3">Back to Sections</a>
+{% endblock %}

@@ -1,0 +1,20 @@
+<!-- templates/index.html -->
+{% extends "base.html" %}
+
+{% block content %}
+<h2>All Listings</h2>
+<div class="row">
+  {% for item in items %}
+    <div class="col-md-4 mb-4">
+      <div class="card">
+        <div class="card-body">
+          {% for key, value in item.items() %}
+            <p><strong>{{ key|capitalize }}:</strong> {{ value }}</p>
+          {% endfor %}
+          <a href="{{ url_for('item_detail', category_table=category_table, item_id=item['id']) }}" class="btn btn-primary btn-sm">View Details</a>
+        </div>
+      </div>
+    </div>
+  {% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2 class="mb-5 text-center display-5 font-weight-bold text-primary">
+  Items in {{ table_name.replace('_', ' ').title() }}
+</h2>
+
+<div class="container">
+  <div class="row justify-content-center">
+    {% for item in items %}
+      <div class="col-12 col-md-6 col-lg-4 mb-4">
+        <div class="card h-100 shadow-lg border-0 rounded-lg overflow-hidden hover-shadow">
+          {% if 'image_url' in item and item['image_url'] %}
+            <img src="{{ item['image_url'] | gs_to_public }}"
+                 class="card-img-top"
+                 alt="Listing Image"
+                 style="height: 350px; object-fit: cover; cursor: pointer;"
+                 data-toggle="modal"
+                 data-target="#imageModal{{ loop.index }}">
+          {% else %}
+            <img src="{{ url_for('static', filename='placeholder.png') }}"
+                 class="card-img-top"
+                 alt="No Image"
+                 style="height: 350px; object-fit: cover;">
+          {% endif %}
+          <div class="card-body py-3 px-4">
+            {% for column in columns %}
+              {% if column != 'id' and column != 'image_url' %}
+                <div class="mb-2">
+                  <span class="text-muted small">
+                    {{ column.replace('_', ' ').title() }}
+                  </span><br>
+                  <span class="font-weight-semibold text-dark">
+                    {{ item[column] }}
+                  </span>
+                </div>
+              {% endif %}
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <div class="modal fade" id="imageModal{{ loop.index }}" tabindex="-1" role="dialog" aria-labelledby="imageModalLabel{{ loop.index }}" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-xl" role="document">
+          <div class="modal-content bg-transparent border-0">
+            <div class="modal-body p-0">
+              <img src="{{ item['image_url'] | gs_to_public }}" class="img-fluid w-100" alt="Full Image">
+            </div>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+
+  <div class="text-center mt-4">
+    <a href="{{ url_for('show_sections') }}" class="btn btn-outline-primary btn-lg">← Back to Sections</a>
+  </div>
+</div>
+
+<style>
+  .hover-shadow:hover {
+    transform: translateY(-4px);
+    transition: transform 0.2s ease-in-out;
+  }
+
+  .font-weight-semibold {
+    font-weight: 600;
+  }
+
+  .display-5 {
+    font-size: 2.25rem;
+  }
+
+  .modal-backdrop {
+    background-color: rgba(0, 0, 0, 0.85);
+  }
+</style>
+{% endblock %}

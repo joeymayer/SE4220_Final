@@ -1,0 +1,19 @@
+{% extends "layout.html" %}
+{% block content %}
+<h2>Visitor View - All Listings</h2>
+<div class="row">
+  {% for listing in listings %}
+    <div class="col-md-4 mb-4">
+      <div class="card">
+        {% if listing.image_url %}
+        <img src="{{ listing.image_url }}" class="card-img-top" alt="Image">
+        {% endif %}
+        <div class="card-body">
+          <h5 class="card-title">{{ listing.title }}</h5>
+          <p>{{ listing.city }} | ${{ listing.price }}</p>
+        </div>
+      </div>
+    </div>
+  {% endfor %}
+</div>
+{% endblock %}

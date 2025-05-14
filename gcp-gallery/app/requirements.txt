@@ -1,2 +1,0 @@
-Flask==2.2.5        # or latest stable
-pymysql==1.0.2      # MySQL client library

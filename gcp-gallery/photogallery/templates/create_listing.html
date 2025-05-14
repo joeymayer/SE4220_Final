@@ -1,0 +1,77 @@
+<!-- templates/create_listing.html -->
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Create a New Listing</h2>
+<a href="{{ url_for('index') }}" class="btn btn-secondary mb-3">Back to Main Page</a>
+
+<form method="POST" action="{{ url_for('create_listing') }}" enctype="multipart/form-data">
+  <div class="form-group">
+    <label for="category_id">Select Category:</label>
+    <select name="category_id" id="category_id" class="form-control" required onchange="showCategoryFields(this.value)">
+      <option value="">-- Select --</option>
+      {% for category in categories %}
+        <option value="{{ category.id }}">{{ category.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div id="dynamic-fields">
+
+  </div>
+
+  <div class="form-group mt-3">
+    <label for="image">Upload Image:</label>
+    <input type="file" name="image" class="form-control-file">
+  </div>
+
+  <button type="submit" class="btn btn-primary mt-3">Create Listing</button>
+</form>
+
+<script>
+const categoryFields = {
+  1: ['Year', 'Make', 'Model', 'Color', 'Mileage', 'Condition Of Vehicle', 'Price', 'City', 'Phone'],
+  2: ['Year', 'Make', 'Model', 'Type', 'Engine Size', 'Mileage', 'Condition Of Vehicle', 'Price', 'City', 'Phone'],
+  3: ['Year', 'Make', 'Model', 'Color', 'Type', 'Condition Of Vehicle', 'Length ft', 'Price', 'City', 'Phone'],
+  4: ['Title', 'Author', 'Publisher', 'Genre', 'Condition Of Book', 'Price', 'Year Published', 'City', 'Phone'],
+  5: ['Type', 'Material', 'Color', 'Condition Of Furniture', 'Dimensions', 'Price', 'City', 'Phone', 'Description'],
+  6: ['Address', 'Bedrooms', 'Bathrooms', 'Square Feet', 'Rent Price', 'Available From', 'Lease Term', 'City', 'Phone'],
+  7: ['Address', 'Bedrooms', 'Bathrooms', 'Square Feet', 'Lot Size', 'Rent Price', 'Available From', 'City', 'Phone'],
+  8: ['Address', 'Room Type', 'Rent Price', 'Bathrooms Shared', 'Utilities Included', 'Available From', 'City', 'Phone', 'Description'],
+  9: ['Address', 'Bedrooms', 'Bathrooms', 'Price Per Night', 'Minimum Stay', 'Available From', 'Available To', 'City', 'Phone'],
+  10: ['Location', 'Space Type', 'Dimensions', 'Security Features', 'Monthly Rent', 'Available From', 'City', 'Phone'],
+  11: ['Service Type', 'Experience Years', 'Certifications', 'Hourly Rate', 'Service Area', 'City', 'Phone', 'Description'],
+  12: ['Service Type', 'Experience Years', 'Certifications', 'Price Range', 'Location', 'City', 'Phone', 'Description'],
+  13: ['Service Type', 'Experience Years', 'Certifications', 'Hourly Rate', 'Availability', 'City', 'Phone', 'Description'],
+  14: ['Service Type', 'Experience Years', 'Service Area', 'Hourly Rate', 'Insured', 'References Available', 'City', 'Phone'],
+  15: ['Subject', 'Experience Years', 'Degree', 'Hourly Rate', 'Availability', 'Online Available', 'City', 'Phone'],
+  16: ['Title', 'Company', 'Location', 'Salary Range', 'Employment Type', 'Required Experience', 'Degree Required', 'Description', 'Contact Email'],
+  17: ['Title', 'Company', 'Location', 'Salary Range', 'Employment Type', 'Certifications Required', 'Degree Required', 'Description', 'Contact Email'],
+  18: ['Title', 'Institution', 'Location', 'Salary Range', 'Employment Type', 'Degree Required', 'Subject Area', 'Description', 'Contact Email'],
+  19: ['Title', 'Company', 'Location', 'Salary Range', 'Employment Type', 'Required Experience', 'Description', 'Contact Email'],
+  20: ['Title', 'Company', 'Location', 'Salary Range', 'Employment Type', 'Required Experience', 'Certifications Required', 'Description', 'Contact Email'],
+  21: ['Event Name', 'Date', 'Time', 'Location', 'Description', 'Entry Fee', 'Organizer Name', 'Phone', 'City'],
+  22: ['Class Name', 'Instructor', 'Schedule', 'Location', 'Fee', 'Duration', 'Description', 'City', 'Phone'],
+  23: ['Item Name', 'Date Lost', 'Location Lost', 'Description', 'Reward Offered', 'Contact Phone', 'City', 'condition of item'],
+  24: ['Opportunity Title', 'Organization Name', 'Location', 'Description', 'Skills Required', 'Time Commitment', 'City', 'Phone'],
+  25: ['Title', 'Description', 'Date Posted', 'Location', 'City', 'Contact Email', 'Phone', 'Date Occurring']
+};
+
+function showCategoryFields(categoryId) {
+  const container = document.getElementById('dynamic-fields');
+  container.innerHTML = '';
+
+  if (categoryFields[categoryId]) {
+    categoryFields[categoryId].forEach(field => {
+      const fieldName = field.toLowerCase().replace(/\s/g, '_');
+      container.innerHTML += `
+        <div class="form-group">
+          <label for="attr_${fieldName}">${field}:</label>
+          <input type="text" name="attr_${fieldName}" class="form-control" required>
+        </div>
+      `;
+    });
+  }
+}
+</script>
+{% endblock %}
