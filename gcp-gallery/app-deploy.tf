@@ -24,13 +24,14 @@ resource "google_compute_instance" "web_vm" {
   }
 
   metadata_startup_script = templatefile(
-    "${path.module}/startup.tftpl",
-    {
-      db_host = google_sql_database_instance.db_instance.private_ip_address
-      db_user = var.db_user
-      db_pass = var.db_password
-    }
-  )
+  "${path.module}/startup.tftpl",
+  {
+    db_host                 = google_sql_database_instance.db_instance.private_ip_address
+    db_user                 = var.db_user
+    db_pass                 = var.db_password
+    instance_connection_name = google_sql_database_instance.db_instance.connection_name   
+  }
+)
 
   depends_on = [google_sql_database_instance.db_instance]
 }
