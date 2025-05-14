@@ -20,6 +20,7 @@ export DB_HOST="${db_host}"
 export DB_USER="${db_user}"
 export DB_PASS="${db_pass}"
 export DB_NAME="gallery"
+export INSTANCE_CONNECTION_NAME="${google_sql_database_instance.db_instance.connection_name}"
 
 # ---- initialise schema (idempotent) -----------------------------------------
 mysql -h "$DB_HOST" -u "$DB_USER" -p"$DB_PASS" <<'SQL'
