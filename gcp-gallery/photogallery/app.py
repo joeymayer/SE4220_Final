@@ -1,11 +1,10 @@
 import os
-import io
 from urllib.parse import urlparse
 
 import pymysql
 from flask import (
     Flask, render_template, redirect, url_for, request, session,
-    flash, g, abort, send_file
+    flash, g, abort
 )
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
@@ -15,49 +14,27 @@ from google.cloud import storage
 # Configuration                                                               #
 # --------------------------------------------------------------------------- #
 
-# DB creds come from startup script env vars
-DB_HOST = os.getenv("DB_HOST")                  # 10.x.x.x private IP
+DB_HOST = os.getenv("DB_HOST")
 DB_NAME = os.getenv("DB_NAME", "gallery")
 DB_USER = os.getenv("DB_USER")
 DB_PASS = os.getenv("DB_PASS")
 
-# GCS bucket for image uploads
 GCS_BUCKET = "se4220-project5.appspot.com"
-
-# Allowed upload extensions
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif"}
 
-# Flask setup
 app = Flask(__name__)
-app.secret_key = "some_secret_key"              # replace in prod
+app.secret_key = "some_secret_key"          # replace for prod
 
-# Category->table mapping (unchanged)
-CATEGORY_TABLE_MAP = {
-    1: "cars_trucks",
-    2: "motorcycles",
-    3: "boats",
-    4: "books",
-    5: "furniture",
-    6: "apartments",
-    7: "houses_rent",
-    8: "rooms_shared",
-    9: "vacation_rentals",
-    10: "parking_storage",
-    11: "automotive_services",
-    12: "beauty_services",
-    13: "computer_services",
-    14: "household_services",
-    15: "tutoring_services",
-    16: "engineering_jobs",
-    17: "healthcare_jobs",
-    18: "education_jobs",
-    19: "customer_service_jobs",
-    20: "construction_jobs",
-    21: "events",
-    22: "classes",
-    23: "lost_found",
-    24: "volunteers",
-    25: "general_community",
+CATEGORY_TABLE_MAP = {                      # unchanged
+    1: "cars_trucks",       2: "motorcycles",            3: "boats",
+    4: "books",             5: "furniture",              6: "apartments",
+    7: "houses_rent",       8: "rooms_shared",           9: "vacation_rentals",
+    10: "parking_storage", 11: "automotive_services",   12: "beauty_services",
+    13: "computer_services",14: "household_services",   15: "tutoring_services",
+    16: "engineering_jobs",17: "healthcare_jobs",       18: "education_jobs",
+    19: "customer_service_jobs", 20: "construction_jobs",
+    21: "events",          22: "classes",               23: "lost_found",
+    24: "volunteers",      25: "general_community",
 }
 
 # --------------------------------------------------------------------------- #
@@ -65,41 +42,34 @@ CATEGORY_TABLE_MAP = {
 # --------------------------------------------------------------------------- #
 
 def _open_connection():
-    """Return a new PyMySQL connection."""
     return pymysql.connect(
         host=DB_HOST,
         user=DB_USER,
         password=DB_PASS,
         database=DB_NAME,
-        cursorclass=pymysql.cursors.DictCursor,
         autocommit=True,
+        cursorclass=pymysql.cursors.DictCursor,
     )
 
 def get_db():
-    """
-    Lazily attach a DB connection to `g` for the current request.
-    Flask automatically resets `g` each request cycle.
-    """
     if "db" not in g:
         g.db = _open_connection()
     return g.db
 
 @app.teardown_appcontext
 def teardown_db(exception):
-    """Close the connection at the end of the request, if it exists."""
     db = g.pop("db", None)
-    if db is not None:
+    if db:
         db.close()
 
 # --------------------------------------------------------------------------- #
-# Utility functions                                                           #
+# Utility                                                                     #
 # --------------------------------------------------------------------------- #
 
-def allowed_file(filename):
-    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+def allowed_file(fname):
+    return "." in fname and fname.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def upload_to_gcs(file_storage, filename):
-    """Upload a Flask `FileStorage` to Google Cloud Storage and return public URL."""
     client = storage.Client()
     bucket = client.bucket(GCS_BUCKET)
     blob = bucket.blob(filename)
@@ -107,13 +77,8 @@ def upload_to_gcs(file_storage, filename):
     blob.make_public()
     return blob.public_url
 
-# --------------------------------------------------------------------------- #
-# Jinja filters                                                               #
-# --------------------------------------------------------------------------- #
-
 @app.template_filter("gs_to_public")
 def gs_to_public(gs_url):
-    """Convert a gs:// URL to a public https://storage.googleapis.com/ URL."""
     if gs_url and gs_url.startswith("gs://"):
         return gs_url.replace("gs://", "https://storage.googleapis.com/")
     return gs_url
@@ -134,19 +99,20 @@ def index():
         return redirect(url_for("login"))
     return redirect(url_for("show_sections"))
 
+# ---------- Auth ------------------------------------------------------------ #
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        username = request.form.get("username")
-        password = request.form.get("password")
+        username = request.form["username"]
+        password = request.form["password"]
 
         cur = get_db().cursor()
-        cur.execute("SELECT id, password_hash FROM users WHERE username = %s", (username,))
-        user_row = cur.fetchone()
+        cur.execute("SELECT id, password_hash FROM users WHERE username=%s", (username,))
+        user = cur.fetchone()
 
-        if user_row and check_password_hash(user_row["password_hash"], password):
-            session["username"] = username
-            session["user_id"] = user_row["id"]
+        if user and check_password_hash(user["password_hash"], password):
+            session.update(username=username, user_id=user["id"])
             return redirect(url_for("index"))
 
         flash("Invalid credentials", "error")
@@ -156,8 +122,8 @@ def login():
 @app.route("/signup", methods=["GET", "POST"])
 def signup():
     if request.method == "POST":
-        username = request.form.get("username")
-        password = request.form.get("password")
+        username = request.form["username"]
+        password = request.form["password"]
 
         cur = get_db().cursor()
         cur.execute("SELECT id FROM users WHERE username=%s", (username,))
@@ -165,10 +131,9 @@ def signup():
             flash("Username already taken!", "error")
             return redirect(url_for("signup"))
 
-        hashed_pass = generate_password_hash(password)
         cur.execute(
             "INSERT INTO users (username, password_hash) VALUES (%s, %s)",
-            (username, hashed_pass),
+            (username, generate_password_hash(password)),
         )
         flash("Signup successful! Please log in.", "success")
         return redirect(url_for("login"))
@@ -178,47 +143,45 @@ def signup():
 @app.route("/logout")
 def logout():
     session.clear()
-    flash("You have been logged out.", "info")
+    flash("Logged out", "info")
     return redirect(url_for("login"))
+
+# ---------- Sections / Categories ------------------------------------------ #
 
 @app.route("/sections")
 def show_sections():
     cur = get_db().cursor()
     cur.execute("SELECT id, name, description FROM sections")
-    sections = cur.fetchall()
-    return render_template("sections.html", sections=sections)
+    return render_template("sections.html", sections=cur.fetchall())
 
 @app.route("/categories/<int:section_id>")
 def show_categories(section_id):
     cur = get_db().cursor()
     cur.execute(
-        "SELECT id, name, description FROM categories WHERE section_id=%s", (section_id,)
+        "SELECT id, name, description FROM categories WHERE section_id=%s",
+        (section_id,),
     )
-    categories = cur.fetchall()
-    return render_template("categories.html", categories=categories)
+    return render_template("categories.html", categories=cur.fetchall())
+
+# ---------- Listings -------------------------------------------------------- #
 
 @app.route("/items/<int:category_id>")
 def show_items(category_id):
-    table_name = CATEGORY_TABLE_MAP.get(category_id)
-    if not table_name:
-        abort(404, "Invalid category selected.")
+    table = CATEGORY_TABLE_MAP.get(category_id)
+    if not table:
+        abort(404, "Invalid category")
 
     cur = get_db().cursor()
-    cur.execute(f"SELECT * FROM {table_name}")
+    cur.execute(f"SELECT * FROM {table}")
     items = cur.fetchall()
-    column_names = [desc[0] for desc in cur.description]
+    columns = [desc[0] for desc in cur.description]
+    return render_template("items.html", items=items, columns=columns, table_name=table)
 
-    return render_template(
-        "items.html", items=items, columns=column_names, table_name=table_name
-    )
-
-@app.route("/item/<string:category_table>/<int:item_id>")
-def item_detail(category_table, item_id):
+@app.route("/item/<string:category>/<int:item_id>")
+def item_detail(category, item_id):
     cur = get_db().cursor()
-    cur.execute(f"SELECT * FROM {category_table} WHERE id=%s", (item_id,))
-    item = cur.fetchone()
-    if not item:
-        abort(404)
+    cur.execute(f"SELECT * FROM {category} WHERE id=%s", (item_id,))
+    item = cur.fetchone() or abort(404)
     return render_template("item_detail.html", item=item)
 
 @app.route("/create", methods=["GET", "POST"])
@@ -229,53 +192,55 @@ def create_listing():
     cur = get_db().cursor()
 
     if request.method == "POST":
-        category_id = int(request.form.get("category_id"))
-        table_name = CATEGORY_TABLE_MAP.get(category_id)
-
-        if not table_name:
-            flash("Invalid category selected.", "error")
+        category_id = int(request.form["category_id"])
+        table = CATEGORY_TABLE_MAP.get(category_id)
+        if not table:
+            flash("Invalid category.", "error")
             return redirect(url_for("create_listing"))
 
-        # Extract dynamic form attributes (prefixed with attr_)
-        form_data = {
-            key[5:]: value for key, value in request.form.items() if key.startswith("attr_")
-        }
-        if not form_data:
+        # Extract dynamic attrs
+        attrs = {k[5:]: v for k, v in request.form.items() if k.startswith("attr_")}
+        if not attrs:
             flash("No attributes provided.", "error")
             return redirect(url_for("create_listing"))
 
-        columns = ", ".join(
-            [f"`{col}`" if col.lower() == "condition" else col for col in form_data.keys()]
-        )
-        placeholders = ", ".join(["%s"] * len(form_data))
-        values = list(form_data.values())
+        # Ensure columns exist (TEXT type)
+        for col in attrs.keys():
+            col_safe = "`condition`" if col.lower() == "condition" else f"`{col}`"
+            cur.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col_safe} TEXT")
 
-        # Handle optional image upload
-        image = request.files.get("image")
-        if image and allowed_file(image.filename):
-            filename = secure_filename(image.filename)
-            image_url = upload_to_gcs(image, filename)
+        columns = ", ".join(
+            [f"`{c}`" if c.lower() == "condition" else c for c in attrs.keys()]
+        )
+        placeholders = ", ".join(["%s"] * len(attrs))
+        values = list(attrs.values())
+
+        # Optional image
+        img = request.files.get("image")
+        if img and allowed_file(img.filename):
+            url = upload_to_gcs(img, secure_filename(img.filename))
+            cur.execute(
+                f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS image_url TEXT"
+            )
             columns += ", image_url"
             placeholders += ", %s"
-            values.append(image_url)
+            values.append(url)
 
-        query = f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders})"
-        cur.execute(query, values)
+        # Insert
+        cur.execute(f"INSERT INTO {table} ({columns}) VALUES ({placeholders})", values)
         flash("Item listed successfully!", "success")
         return redirect(url_for("index"))
 
     cur.execute("SELECT id, name FROM categories")
-    categories = cur.fetchall()
-    return render_template("create_listing.html", categories=categories)
+    return render_template("create_listing.html", categories=cur.fetchall())
 
 @app.route("/visitor")
 def visitor():
     return redirect(url_for("show_sections"))
 
 # --------------------------------------------------------------------------- #
-# Main entry                                                                   #
+# Run                                                                        #
 # --------------------------------------------------------------------------- #
 
 if __name__ == "__main__":
-    # Debug off in production; Flask will still bind to 0.0.0.0:80 from startup script
     app.run(host="0.0.0.0", port=80, debug=False)
