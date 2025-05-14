@@ -26,11 +26,44 @@ mysql -h "$DB_HOST" -u "$DB_USER" -p"$DB_PASS" <<'SQL'
 CREATE DATABASE IF NOT EXISTS gallery;
 USE gallery;
 
-CREATE TABLE IF NOT EXISTS photos (
-  id        INT AUTO_INCREMENT PRIMARY KEY,
-  filename  VARCHAR(255),
-  uploaded  DATETIME DEFAULT CURRENT_TIMESTAMP
+-- Users
+CREATE TABLE IF NOT EXISTS users (
+  id            INT AUTO_INCREMENT PRIMARY KEY,
+  username      VARCHAR(50) UNIQUE NOT NULL,
+  password_hash VARCHAR(255)        NOT NULL,
+  created_at    TIMESTAMP           DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Sections (if not already present)
+CREATE TABLE IF NOT EXISTS sections (
+  id          INT AUTO_INCREMENT PRIMARY KEY,
+  name        VARCHAR(100),
+  description TEXT
+);
+
+-- Categories
+CREATE TABLE IF NOT EXISTS categories (
+  id          INT AUTO_INCREMENT PRIMARY KEY,
+  section_id  INT,
+  name        VARCHAR(100),
+  description TEXT,
+  FOREIGN KEY (section_id) REFERENCES sections(id)
+);
+
+-- Example dynamic item table (repeat for each in CATEGORY_TABLE_MAP)
+CREATE TABLE IF NOT EXISTS cars_trucks (
+  id          INT AUTO_INCREMENT PRIMARY KEY,
+  title       VARCHAR(255),
+  price       DECIMAL(10,2),
+  mileage     INT,
+  condition_  VARCHAR(50),
+  image_url   TEXT,
+  posted_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- add other tables (motorcycles, boats, etc.) as simple copies:
+-- CREATE TABLE IF NOT EXISTS motorcycles ( ... );
+
 SQL
 
 # ---- launch flask app --------------------------------------------------------
