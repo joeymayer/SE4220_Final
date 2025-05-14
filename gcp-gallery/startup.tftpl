@@ -23,46 +23,126 @@ export DB_NAME="gallery"
 export INSTANCE_CONNECTION_NAME="${instance_connection_name}"
 # ---- initialise schema (idempotent) -----------------------------------------
 mysql -h "$DB_HOST" -u "$DB_USER" -p"$DB_PASS" <<'SQL'
+
+
 CREATE DATABASE IF NOT EXISTS gallery;
 USE gallery;
 
--- Users
+-- ---------------- USERS ----------------
 CREATE TABLE IF NOT EXISTS users (
   id            INT AUTO_INCREMENT PRIMARY KEY,
   username      VARCHAR(50) UNIQUE NOT NULL,
   password_hash VARCHAR(255)        NOT NULL,
-  created_at    TIMESTAMP           DEFAULT CURRENT_TIMESTAMP
+  created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Sections (if not already present)
+-- ---------------- SECTIONS -------------
 CREATE TABLE IF NOT EXISTS sections (
-  id          INT AUTO_INCREMENT PRIMARY KEY,
+  id          INT PRIMARY KEY,
   name        VARCHAR(100),
   description TEXT
 );
 
--- Categories
+INSERT INTO sections (id, name, description) VALUES
+  (1,  'Vehicles',   'Cars, motorcycles, boats, etc.'),
+  (2,  'Housing',    'Apartments, houses, rooms'),
+  (3,  'Services',   'Automotive, beauty, computer, household'),
+  (4,  'Jobs',       'Engineering, healthcare, education, customer service'),
+  (5,  'Community',  'Events, classes, lost & found, volunteers')
+ON DUPLICATE KEY UPDATE name = VALUES(name);
+
+-- ---------------- CATEGORIES -----------
 CREATE TABLE IF NOT EXISTS categories (
-  id          INT AUTO_INCREMENT PRIMARY KEY,
+  id          INT PRIMARY KEY,
   section_id  INT,
   name        VARCHAR(100),
   description TEXT,
   FOREIGN KEY (section_id) REFERENCES sections(id)
 );
 
--- Example dynamic item table (repeat for each in CATEGORY_TABLE_MAP)
-CREATE TABLE IF NOT EXISTS cars_trucks (
-  id          INT AUTO_INCREMENT PRIMARY KEY,
-  title       VARCHAR(255),
-  price       DECIMAL(10,2),
-  mileage     INT,
-  condition_  VARCHAR(50),
-  image_url   TEXT,
-  posted_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+INSERT INTO categories (id, section_id, name, description) VALUES
+  (1,  1, 'Cars & Trucks',          'Cars and pickup trucks'),
+  (2,  1, 'Motorcycles',            'Motorcycles and ATVs'),
+  (3,  1, 'Boats',                  'Watercraft of all kinds'),
+  (4,  1, 'Books',                  'Books and magazines'),
+  (5,  1, 'Furniture',              'Indoor and outdoor furniture'),
+  (6,  2, 'Apartments',             'Apartments for rent'),
+  (7,  2, 'Houses for Rent',        'Entire houses available'),
+  (8,  2, 'Rooms Shared',           'Shared rooms or sublets'),
+  (9,  2, 'Vacation Rentals',       'Short-term stays'),
+  (10, 2, 'Parking & Storage',      'Garages, lots, storage'),
+  (11, 3, 'Automotive Services',    'Repair, detailing, etc.'),
+  (12, 3, 'Beauty Services',        'Hair, nails, spa'),
+  (13, 3, 'Computer Services',      'IT help, repairs'),
+  (14, 3, 'Household Services',     'Cleaning, moving'),
+  (15, 3, 'Tutoring Services',      'Tutoring and lessons'),
+  (16, 4, 'Engineering Jobs',       'Engineering positions'),
+  (17, 4, 'Healthcare Jobs',        'Nursing, clinics, etc.'),
+  (18, 4, 'Education Jobs',         'Teaching, tutoring'),
+  (19, 4, 'Customer Service Jobs',  'Retail, call-center'),
+  (20, 4, 'Construction Jobs',      'Trades and labour'),
+  (21, 5, 'Events',                 'Concerts, fairs'),
+  (22, 5, 'Classes',                'Courses and workshops'),
+  (23, 5, 'Lost & Found',           'Report or claim items'),
+  (24, 5, 'Volunteers',             'Volunteer opportunities'),
+  (25, 5, 'General Community',      'Miscellaneous community posts')
+ON DUPLICATE KEY UPDATE name = VALUES(name);
 
--- add other tables (motorcycles, boats, etc.) as simple copies:
--- CREATE TABLE IF NOT EXISTS motorcycles ( ... );
+-- --------------- ITEM TABLE TEMPLATE -------------
+--  Each table has generic columns; extend later as needed.
+--  id, title, price, description, image_url, posted_at
+-- --------------------------------------------------
+
+DELIMITER $$
+
+CREATE PROCEDURE IF NOT EXISTS create_item_table(IN tbl VARCHAR(64))
+BEGIN
+  SET @sql := CONCAT(
+    'CREATE TABLE IF NOT EXISTS ', tbl, ' (',
+    'id INT AUTO_INCREMENT PRIMARY KEY,',
+    'title VARCHAR(255),',
+    'price DECIMAL(10,2),',
+    'description TEXT,',
+    'image_url TEXT,',
+    'posted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP',
+    ');'
+  );
+  PREPARE stmt FROM @sql;
+  EXECUTE stmt;
+  DEALLOCATE PREPARE stmt;
+END$$
+
+DELIMITER ;
+
+-- Call procedure for every table in CATEGORY_TABLE_MAP
+CALL create_item_table('cars_trucks');
+CALL create_item_table('motorcycles');
+CALL create_item_table('boats');
+CALL create_item_table('books');
+CALL create_item_table('furniture');
+CALL create_item_table('apartments');
+CALL create_item_table('houses_rent');
+CALL create_item_table('rooms_shared');
+CALL create_item_table('vacation_rentals');
+CALL create_item_table('parking_storage');
+CALL create_item_table('automotive_services');
+CALL create_item_table('beauty_services');
+CALL create_item_table('computer_services');
+CALL create_item_table('household_services');
+CALL create_item_table('tutoring_services');
+CALL create_item_table('engineering_jobs');
+CALL create_item_table('healthcare_jobs');
+CALL create_item_table('education_jobs');
+CALL create_item_table('customer_service_jobs');
+CALL create_item_table('construction_jobs');
+CALL create_item_table('events');
+CALL create_item_table('classes');
+CALL create_item_table('lost_found');
+CALL create_item_table('volunteers');
+CALL create_item_table('general_community');
+
+-- Clean-up (optional)
+DROP PROCEDURE IF EXISTS create_item_table;
 
 SQL
 
