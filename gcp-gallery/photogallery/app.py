@@ -20,7 +20,7 @@ DB_USER = os.getenv("DB_USER")
 DB_PASS = os.getenv("DB_PASS")
 
 # Bucket created/managed by Terraform
-GCS_BUCKET = "se4220-gallery-images"
+GCS_BUCKET = os.getenv("GCS_BUCKET", "se4220-gallery-images")
 
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif"}
 
@@ -93,6 +93,12 @@ def gs_to_public(gs_url):
 @app.route('/')
 def home():
     return redirect(url_for('show_sections' if 'username' in session else 'login'))
+
+@app.route("/index", endpoint="index")
+def index_redirect():
+    if "username" in session:
+        return redirect(url_for("show_sections"))
+    return redirect(url_for("login"))
 
 @app.route('/login', methods=['GET','POST'])
 def login():
