@@ -175,68 +175,76 @@ def item_detail(category_table, item_id):
 
 @app.route('/create', methods=['GET','POST'])
 def create_listing():
-    # require login
+    # 1) Require login
     if 'username' not in session:
         return redirect(url_for('login'))
 
     cur = get_db().cursor()
-    # always define img before any branch
+
+    # 2) Always grab the image object first (it may be None)
     img = request.files.get('image')
 
     if request.method == 'POST':
-        # validate category
+        # 3) Validate and lookup the target table
         try:
-            cid = int(request.form['category_id'])
+            cid   = int(request.form['category_id'])
             table = CATEGORY_TABLE_MAP[cid]
-        except:
+        except (KeyError, ValueError):
             flash("Invalid category.","error")
             return redirect(url_for('create_listing'))
 
-        # collect attributes
-        attrs = {k[5:]:v for k,v in request.form.items() if k.startswith('attr_')}
+        # 4) Pull out all "attr_" form fields
+        attrs = {k[5:]: v for k,v in request.form.items() if k.startswith('attr_')}
         if not attrs:
             flash("No attributes provided.","error")
             return redirect(url_for('create_listing'))
 
-        # add missing columns
+        # 5) Ensure each dynamic column exists (MySQL 5.7 safe check)
         for col in attrs:
             cur.execute(
-                """SELECT COUNT(*) AS n FROM INFORMATION_SCHEMA.COLUMNS
-                   WHERE TABLE_SCHEMA=%s AND TABLE_NAME=%s AND COLUMN_NAME=%s""",
+                """SELECT COUNT(*) AS n
+                     FROM INFORMATION_SCHEMA.COLUMNS
+                    WHERE TABLE_SCHEMA=%s
+                      AND TABLE_NAME=%s
+                      AND COLUMN_NAME=%s""",
                 (DB_NAME, table, col)
             )
-            if cur.fetchone()['n']==0:
-                name = "`condition`" if col.lower()=="condition" else f"`{col}`"
-                cur.execute(f"ALTER TABLE {table} ADD COLUMN {name} TEXT")
+            if cur.fetchone()['n'] == 0:
+                col_sql = "`condition`" if col.lower()=="condition" else f"`{col}`"
+                cur.execute(f"ALTER TABLE {table} ADD COLUMN {col_sql} TEXT")
 
-        # handle image upload
+        # 6) Handle optional image upload
         if img and allowed_file(img.filename):
-            # ensure image_url exists
+            # 6a) Ensure image_url column exists
             cur.execute(
-                """SELECT COUNT(*) AS n FROM INFORMATION_SCHEMA.COLUMNS
-                   WHERE TABLE_SCHEMA=%s AND TABLE_NAME=%s AND COLUMN_NAME='image_url'""",
+                """SELECT COUNT(*) AS n
+                     FROM INFORMATION_SCHEMA.COLUMNS
+                    WHERE TABLE_SCHEMA=%s
+                      AND TABLE_NAME=%s
+                      AND COLUMN_NAME='image_url'""",
                 (DB_NAME, table)
             )
-            if cur.fetchone()['n']==0:
+            if cur.fetchone()['n'] == 0:
                 cur.execute(f"ALTER TABLE {table} ADD COLUMN image_url TEXT")
+
+            # 6b) Upload to GCS & append to attrs
             filename = secure_filename(img.filename)
             attrs['image_url'] = upload_to_gcs(img, filename)
 
-        # insert record
-        cols = ", ".join([f"`{c}`" if c.lower()=="condition" else c for c in attrs])
-        phs  = ", ".join(["%s"]*len(attrs))
+        # 7) Build and run the INSERT
+        columns     = ", ".join([f"`{c}`" if c.lower()=="condition" else c for c in attrs])
+        placeholders= ", ".join(["%s"]*len(attrs))
         cur.execute(
-            f"INSERT INTO {table} ({cols}) VALUES ({phs})",
+            f"INSERT INTO {table} ({columns}) VALUES ({placeholders})",
             list(attrs.values())
         )
 
         flash("Item listed successfully!","success")
         return redirect(url_for('show_sections'))
 
-    # GET -> show form
+    # GET: render the empty form
     cur.execute("SELECT id,name FROM categories")
-    cats = cur.fetchall()
-    return render_template('create_listing.html', categories=cats)
+    return render_template('create_listing.html', categories=cur.fetchall())
 
 @app.route('/visitor')
 def visitor():
