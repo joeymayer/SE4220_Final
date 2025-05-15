@@ -152,3 +152,9 @@ resource "google_storage_bucket_iam_member" "sa_object_creator" {
   role   = "roles/storage.objectCreator"
   member = "serviceAccount:${google_service_account.vm_service_account.email}"
 }
+
+resource "google_storage_bucket_iam_member" "public_reader" {
+  bucket = google_storage_bucket.images.name
+  role   = "roles/storage.objectViewer"
+  member = "allUsers"
+}
