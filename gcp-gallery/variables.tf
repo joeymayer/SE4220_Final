@@ -79,7 +79,7 @@ variable "db_password" {
   sensitive   = true
 }
 
-ariable "bucket_name" {
+variable "bucket_name" {
   description = "GCS bucket for gallery image uploads"
   type        = string
   default     = "se4220-gallery-images"   
