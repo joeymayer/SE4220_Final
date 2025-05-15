@@ -109,23 +109,46 @@ resource "google_project_iam_member" "sa_logs_writer" {
   member  = "serviceAccount:${google_service_account.vm_service_account.email}"
 }
 
-resource "google_storage_bucket" "gallery_images" {
-  name                        = var.bucket_name
-  location                    = var.region
-  uniform_bucket_level_access = true
-  force_destroy               = true   # auto‑delete objects on `terraform destroy`
-  depends_on                  = [google_project_service.storage_api]
-}
-
-resource "google_storage_bucket_iam_member" "bucket_object_creator" {
-  bucket = google_storage_bucket.gallery_images.name    # reference created bucket
+# Allow only object creation (no delete)
+resource "google_storage_bucket_iam_member" "bucket_writer" {
+  bucket = google_storage_bucket.images.name
   role   = "roles/storage.objectCreator"
   member = "serviceAccount:${google_service_account.vm_service_account.email}"
 }
 
-# (Optional) Allow public read access to all objects in the bucket
-resource "google_storage_bucket_iam_member" "bucket_public_read" {
-  bucket = google_storage_bucket.gallery_images.name
+resource "google_storage_bucket_iam_member" "bucket_public_view" {
+  bucket = google_storage_bucket.images.name
   role   = "roles/storage.objectViewer"
   member = "allUsers"
+}
+
+resource "google_storage_bucket_iam_member" "sa_bucket_uploader" {
+  bucket = "se4220-gallery-images"    # <-- use your real bucket name
+  role   = "roles/storage.objectCreator"
+  member = "serviceAccount:${google_service_account.vm_service_account.email}"
+}
+resource "google_storage_bucket_iam_member" "allusers_reader" {
+  bucket = "se4220-gallery-images"
+  role   = "roles/storage.objectViewer"
+  member = "allUsers"
+}
+
+resource "google_storage_bucket" "images" {
+  name          = "se4220-gallery-images"      # must be globally unique
+  location      = "US"                   # e.g. us-central1
+  uniform_bucket_level_access = true
+  force_destroy = true                         # auto-delete objects on destroy
+}
+
+resource "google_storage_bucket_iam_member" "sa_images_writer" {
+  bucket = google_storage_bucket.images.name
+  role   = "roles/storage.objectCreator"
+  member = "serviceAccount:${google_service_account.vm_service_account.email}"
+}
+
+
+resource "google_storage_bucket_iam_member" "sa_object_creator" {
+  bucket = google_storage_bucket.images.name
+  role   = "roles/storage.objectCreator"
+  member = "serviceAccount:${google_service_account.vm_service_account.email}"
 }
