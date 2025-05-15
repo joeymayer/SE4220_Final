@@ -84,10 +84,3 @@ variable "bucket_name" {
   type        = string
   default     = "se4220-gallery-images"   
 }
-
-resource "google_storage_bucket" "gallery_images" {
-  name          = var.bucket_name              # use variable for uniqueness
-  location      = var.region                   # or "US" for multi-region
-  uniform_bucket_level_access = true           # use IAM-only, no object ACLs
-  force_destroy = true                         # auto-delete objects on terraform destroy
-}
