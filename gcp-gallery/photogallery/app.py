@@ -77,6 +77,7 @@ def upload_to_gcs(file_storage, filename):
     bucket = client.bucket(GCS_BUCKET)
     blob = bucket.blob(filename)
     blob.upload_from_file(file_storage, content_type=file_storage.content_type)
+
     return blob.public_url
 
 @app.template_filter('gs_to_public')
@@ -178,62 +179,78 @@ def item_detail(category_table, item_id):
 # Routes: Create Listing                                                      #
 # --------------------------------------------------------------------------- #
 
-ALLOWED_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif'}
-
-def allowed_file(filename: str) -> bool:
-    return os.path.splitext(filename.lower())[1] in ALLOWED_EXTENSIONS
-
-def upload_to_gcs(file_obj, dest_name):
-    """Upload file_obj (a FileStorage) to GCS and return its public URL."""
-    storage_client = storage.Client()
-    bucket = storage_client.bucket(os.environ['GCS_BUCKET'])
-    blob   = bucket.blob(dest_name)
-    # file_obj is a FileStorage; upload_from_file preserves stream pos.
-    blob.upload_from_file(file_obj, content_type=file_obj.mimetype)
-    # Make it public (only needed if bucket itself isn’t world-readable)
-    blob.make_public()
-    return blob.public_url
-
-@app.route("/create", methods=["GET", "POST"])
+@app.route('/create', methods=['GET','POST'])
 def create_listing():
-    if request.method == "POST":
-        # pull basic form fields ------------------------------
-        title       = request.form.get("title")
-        description = request.form.get("description")
-        price       = request.form.get("price")
+    # 1) Require login
+    if 'username' not in session:
+        return redirect(url_for('login'))
 
-        # build dict we’ll pass to DB later
-        attrs = {
-            "title": title,
-            "description": description,
-            "price": price
-        }
+    cur = get_db().cursor()
 
-        # ----------  ⬇️  DROP THE SNIPPET RIGHT HERE  ⬇️ ----------
-        img = request.files.get("image")          # <input name="image" … />
+    # 2) Always grab the image object first (it may be None)
+    img = request.files.get('image')
 
-        if img and img.filename:
-            if allowed_file(img.filename):
-                # make filename unique to avoid overwrite collisions
-                ext      = os.path.splitext(img.filename)[1].lower()
-                filename = f"{uuid.uuid4().hex}{ext}"
-                image_url = upload_to_gcs(img, filename)
-                attrs["image_url"] = image_url
-            else:
-                flash("File type not allowed.", "error")
-                return redirect(url_for("create_listing"))
-        else:
-            attrs["image_url"] = None
-        # ----------  ⬆️  END OF SNIPPET  ⬆️ -----------------------
+    if request.method == 'POST':
+        # 3) Validate and lookup the target table
+        try:
+            cid   = int(request.form['category_id'])
+            table = CATEGORY_TABLE_MAP[cid]
+        except (KeyError, ValueError):
+            flash("Invalid category.","error")
+            return redirect(url_for('create_listing'))
 
-        # now save `attrs` into your DB (pseudo-code)
-        listing_id = db.insert("listings", attrs)
+        # 4) Pull out all "attr_" form fields
+        attrs = {k[5:]: v for k,v in request.form.items() if k.startswith('attr_')}
+        if not attrs:
+            flash("No attributes provided.","error")
+            return redirect(url_for('create_listing'))
 
-        flash("Listing created successfully!", "success")
-        return redirect(url_for("view_listing", listing_id=listing_id))
+        # 5) Ensure each dynamic column exists (MySQL 5.7 safe check)
+        for col in attrs:
+            cur.execute(
+                """SELECT COUNT(*) AS n
+                     FROM INFORMATION_SCHEMA.COLUMNS
+                    WHERE TABLE_SCHEMA=%s
+                      AND TABLE_NAME=%s
+                      AND COLUMN_NAME=%s""",
+                (DB_NAME, table, col)
+            )
+            if cur.fetchone()['n'] == 0:
+                col_sql = "`condition`" if col.lower()=="condition" else f"`{col}`"
+                cur.execute(f"ALTER TABLE {table} ADD COLUMN {col_sql} TEXT")
 
-    # GET request → show the form
-    return render_template("create_listing.html")
+        # 6) Handle optional image upload
+        if img and allowed_file(img.filename):
+            # 6a) Ensure image_url column exists
+            cur.execute(
+                """SELECT COUNT(*) AS n
+                     FROM INFORMATION_SCHEMA.COLUMNS
+                    WHERE TABLE_SCHEMA=%s
+                      AND TABLE_NAME=%s
+                      AND COLUMN_NAME='image_url'""",
+                (DB_NAME, table)
+            )
+            if cur.fetchone()['n'] == 0:
+                cur.execute(f"ALTER TABLE {table} ADD COLUMN image_url TEXT")
+
+            # 6b) Upload to GCS & append to attrs
+            filename = secure_filename(img.filename)
+            attrs['image_url'] = upload_to_gcs(img, filename)
+
+        # 7) Build and run the INSERT
+        columns     = ", ".join([f"`{c}`" if c.lower()=="condition" else c for c in attrs])
+        placeholders= ", ".join(["%s"]*len(attrs))
+        cur.execute(
+            f"INSERT INTO {table} ({columns}) VALUES ({placeholders})",
+            list(attrs.values())
+        )
+
+        flash("Item listed successfully!","success")
+        return redirect(url_for('show_sections'))
+
+    # GET: render the empty form
+    cur.execute("SELECT id,name FROM categories")
+    return render_template('create_listing.html', categories=cur.fetchall())
 
 @app.route('/visitor')
 def visitor():
