@@ -139,8 +139,15 @@ resource "google_storage_bucket_iam_member" "allusers_reader" {
   member = "allUsers"
 }
 
-resource "google_storage_bucket_iam_member" "sa_bucket_writer" {
-  bucket = "se4220-project5.appspot.com"               # <-- your bucket
-  role   = "roles/storage.objectCreator"               # create / overwrite
+resource "google_storage_bucket" "images" {
+  name          = "se4220-gallery-images"      # must be globally unique
+  location      = var.region                   # e.g. us-central1
+  uniform_bucket_level_access = true
+  force_destroy = true                         # auto-delete objects on destroy
+}
+
+resource "google_storage_bucket_iam_member" "sa_images_writer" {
+  bucket = google_storage_bucket.images.name
+  role   = "roles/storage.objectCreator"
   member = "serviceAccount:${google_service_account.vm_service_account.email}"
 }
