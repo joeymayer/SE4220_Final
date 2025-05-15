@@ -127,3 +127,9 @@ resource "google_storage_bucket_iam_member" "bucket_public_view" {
   role   = "roles/storage.objectViewer"
   member = "allUsers"
 }
+
+resource "google_storage_bucket_iam_member" "sa_bucket_uploader" {
+  bucket = "se4220-gallery-images"    # <-- use your real bucket name
+  role   = "roles/storage.objectCreator"
+  member = "serviceAccount:${google_service_account.vm_service_account.email}"
+}
