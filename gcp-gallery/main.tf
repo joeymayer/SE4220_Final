@@ -133,3 +133,8 @@ resource "google_storage_bucket_iam_member" "sa_bucket_uploader" {
   role   = "roles/storage.objectCreator"
   member = "serviceAccount:${google_service_account.vm_service_account.email}"
 }
+resource "google_storage_bucket_iam_member" "allusers_reader" {
+  bucket = "se4220-gallery-images"
+  role   = "roles/storage.objectViewer"
+  member = "allUsers"
+}
