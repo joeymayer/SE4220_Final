@@ -206,13 +206,12 @@ def create_listing():
 
         # Ensure columns exist (TEXT type)
         for col in attrs.keys():
-    col_safe = "`condition`" if col.lower() == "condition" else f"`{col}`"
-    try:
-        cur.execute(f"ALTER TABLE {table} ADD COLUMN {col_safe} TEXT")
-    except pymysql.err.OperationalError as e:
-        # Error 1060: duplicate column — already exists, safe to ignore
-        if e.args[0] != 1060:
-            raise
+            col_safe = "`condition`" if col.lower() == "condition" else f"`{col}`"
+            try:
+                cur.execute(f"ALTER TABLE {table} ADD COLUMN {col_safe} TEXT")
+            except pymysql.err.OperationalError as e:
+                if e.args[0] != 1060:
+                    raise
 
         columns = ", ".join(
             [f"`{c}`" if c.lower() == "condition" else c for c in attrs.keys()]
