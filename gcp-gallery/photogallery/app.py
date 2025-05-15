@@ -11,7 +11,7 @@ from werkzeug.utils import secure_filename
 from google.cloud import storage
 
 # --------------------------------------------------------------------------- #
-# Config                                                                      #
+# Configuration                                                               #
 # --------------------------------------------------------------------------- #
 
 DB_HOST = os.getenv("DB_HOST")
@@ -19,13 +19,13 @@ DB_NAME = os.getenv("DB_NAME", "gallery")
 DB_USER = os.getenv("DB_USER")
 DB_PASS = os.getenv("DB_PASS")
 
-# New normal bucket that Terraform creates and grants objectCreator
+# Bucket created/managed by Terraform
 GCS_BUCKET = "se4220-gallery-images"
 
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif"}
 
 app = Flask(__name__)
-app.secret_key = "some_secret_key"            # replace in prod
+app.secret_key = "some_secret_key"  # change for prod
 
 CATEGORY_TABLE_MAP = {
     1: "cars_trucks", 2: "motorcycles", 3: "boats", 4: "books", 5: "furniture",
@@ -41,7 +41,7 @@ CATEGORY_TABLE_MAP = {
 }
 
 # --------------------------------------------------------------------------- #
-# DB helpers                                                                  #
+# Database helpers                                                            #
 # --------------------------------------------------------------------------- #
 
 def _open_connection():
@@ -55,22 +55,22 @@ def _open_connection():
     )
 
 def get_db():
-    if "db" not in g:
+    if 'db' not in g:
         g.db = _open_connection()
     return g.db
 
 @app.teardown_appcontext
-def teardown_db(_):
-    db = g.pop("db", None)
-    if db:
+def teardown_db(exception):
+    db = g.pop('db', None)
+    if db is not None:
         db.close()
 
 # --------------------------------------------------------------------------- #
-# Utility                                                                     #
+# Utility functions                                                           #
 # --------------------------------------------------------------------------- #
 
-def allowed_file(fname):
-    return "." in fname and fname.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def upload_to_gcs(file_storage, filename):
     client = storage.Client()
@@ -80,180 +80,171 @@ def upload_to_gcs(file_storage, filename):
     blob.make_public()
     return blob.public_url
 
-@app.template_filter("gs_to_public")
+@app.template_filter('gs_to_public')
 def gs_to_public(gs_url):
     if gs_url and gs_url.startswith("gs://"):
         return gs_url.replace("gs://", "https://storage.googleapis.com/")
     return gs_url
 
 # --------------------------------------------------------------------------- #
-# Routes – Auth                                                               #
+# Routes: Authentication                                                      #
 # --------------------------------------------------------------------------- #
 
-@app.route("/")
+@app.route('/')
 def home():
-    return redirect(url_for("show_sections" if "username" in session else "login"))
+    return redirect(url_for('show_sections' if 'username' in session else 'login'))
 
-@app.route("/login", methods=["GET", "POST"])
+@app.route('/login', methods=['GET','POST'])
 def login():
-    if request.method == "POST":
-        u, p = request.form["username"], request.form["password"]
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
         cur = get_db().cursor()
-        cur.execute("SELECT id, password_hash FROM users WHERE username=%s", (u,))
-        row = cur.fetchone()
-        if row and check_password_hash(row["password_hash"], p):
-            session.update(username=u, user_id=row["id"])
-            return redirect(url_for("show_sections"))
-        flash("Invalid credentials", "error")
-    return render_template("login.html")
+        cur.execute("SELECT id, password_hash FROM users WHERE username=%s", (username,))
+        user = cur.fetchone()
+        if user and check_password_hash(user['password_hash'], password):
+            session.update(username=username, user_id=user['id'])
+            return redirect(url_for('show_sections'))
+        flash("Invalid credentials","error")
+    return render_template('login.html')
 
-@app.route("/signup", methods=["GET", "POST"])
+@app.route('/signup', methods=['GET','POST'])
 def signup():
-    if request.method == "POST":
-        u, p = request.form["username"], request.form["password"]
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
         cur = get_db().cursor()
-        cur.execute("SELECT id FROM users WHERE username=%s", (u,))
+        cur.execute("SELECT id FROM users WHERE username=%s", (username,))
         if cur.fetchone():
-            flash("Username already taken!", "error")
-            return redirect(url_for("signup"))
+            flash("Username already taken!","error")
+            return redirect(url_for('signup'))
         cur.execute(
-            "INSERT INTO users (username, password_hash) VALUES (%s, %s)",
-            (u, generate_password_hash(p)),
+            "INSERT INTO users (username,password_hash) VALUES (%s,%s)",
+            (username, generate_password_hash(password))
         )
-        flash("Signup successful! Please log in.", "success")
-        return redirect(url_for("login"))
-    return render_template("signup.html")
+        flash("Signup successful! Please log in.","success")
+        return redirect(url_for('login'))
+    return render_template('signup.html')
 
-@app.route("/logout")
+@app.route('/logout')
 def logout():
     session.clear()
-    flash("Logged out", "info")
-    return redirect(url_for("login"))
+    flash("Logged out","info")
+    return redirect(url_for('login'))
 
 # --------------------------------------------------------------------------- #
-# Routes – Browse                                                             #
+# Routes: Browsing                                                           #
 # --------------------------------------------------------------------------- #
 
-@app.route("/sections")
+@app.route('/sections')
 def show_sections():
     cur = get_db().cursor()
-    cur.execute("SELECT id, name, description FROM sections")
-    return render_template("sections.html", sections=cur.fetchall())
+    cur.execute("SELECT id,name,description FROM sections")
+    sections = cur.fetchall()
+    return render_template('sections.html', sections=sections)
 
-@app.route("/categories/<int:section_id>")
+@app.route('/categories/<int:section_id>')
 def show_categories(section_id):
     cur = get_db().cursor()
     cur.execute(
-        "SELECT id, name, description FROM categories WHERE section_id=%s",
-        (section_id,),
+        "SELECT id,name,description FROM categories WHERE section_id=%s",
+        (section_id,)
     )
-    return render_template("categories.html", categories=cur.fetchall())
+    categories = cur.fetchall()
+    return render_template('categories.html', categories=categories)
 
-@app.route("/items/<int:category_id>")
+@app.route('/items/<int:category_id>')
 def show_items(category_id):
     table = CATEGORY_TABLE_MAP.get(category_id) or abort(404)
     cur = get_db().cursor()
     cur.execute(f"SELECT * FROM {table}")
     items = cur.fetchall()
     cols = [d[0] for d in cur.description]
-    return render_template("items.html", items=items, columns=cols, table_name=table)
+    return render_template('items.html', items=items, columns=cols, table_name=table)
 
-@app.route("/item/<string:category>/<int:item_id>")
-def item_detail(category, item_id):
+@app.route('/item/<string:category_table>/<int:item_id>')
+def item_detail(category_table, item_id):
     cur = get_db().cursor()
-    cur.execute(f"SELECT * FROM {category} WHERE id=%s", (item_id,))
+    cur.execute(f"SELECT * FROM {category_table} WHERE id=%s", (item_id,))
     item = cur.fetchone() or abort(404)
-    return render_template("item_detail.html", item=item)
+    return render_template('item_detail.html', item=item)
 
 # --------------------------------------------------------------------------- #
-# Routes – Create listing                                                     #
+# Routes: Create Listing                                                      #
 # --------------------------------------------------------------------------- #
 
-@app.route("/create", methods=["GET", "POST"])
+@app.route('/create', methods=['GET','POST'])
 def create_listing():
-    # Redirect anonymous users to login
-    if "username" not in session:
-        return redirect(url_for("login"))
+    # require login
+    if 'username' not in session:
+        return redirect(url_for('login'))
 
     cur = get_db().cursor()
+    # always define img before any branch
+    img = request.files.get('image')
 
-    # Always grab the file object (might be None)
-    img = request.files.get("image")
-
-    if request.method == "POST":
-        # Get the table for this category
+    if request.method == 'POST':
+        # validate category
         try:
-            category_id = int(request.form["category_id"])
-            table = CATEGORY_TABLE_MAP[category_id]
-        except (KeyError, ValueError):
-            flash("Invalid category.", "error")
-            return redirect(url_for("create_listing"))
+            cid = int(request.form['category_id'])
+            table = CATEGORY_TABLE_MAP[cid]
+        except:
+            flash("Invalid category.","error")
+            return redirect(url_for('create_listing'))
 
-        # Extract dynamic attributes prefixed by "attr_"
-        attrs = {k[5:]: v for k, v in request.form.items() if k.startswith("attr_")}
+        # collect attributes
+        attrs = {k[5:]:v for k,v in request.form.items() if k.startswith('attr_')}
         if not attrs:
-            flash("No attributes provided.", "error")
-            return redirect(url_for("create_listing"))
+            flash("No attributes provided.","error")
+            return redirect(url_for('create_listing'))
 
-        # Ensure each attribute column exists (MySQL 5.7 safe check)
+        # add missing columns
         for col in attrs:
             cur.execute(
-                """
-                SELECT COUNT(*) AS n
-                  FROM INFORMATION_SCHEMA.COLUMNS
-                 WHERE TABLE_SCHEMA=%s
-                   AND TABLE_NAME=%s
-                   AND COLUMN_NAME=%s
-                """,
-                (DB_NAME, table, col),
+                """SELECT COUNT(*) AS n FROM INFORMATION_SCHEMA.COLUMNS
+                   WHERE TABLE_SCHEMA=%s AND TABLE_NAME=%s AND COLUMN_NAME=%s""",
+                (DB_NAME, table, col)
             )
-            if cur.fetchone()["n"] == 0:
-                col_safe = "`condition`" if col.lower() == "condition" else f"`{col}`"
-                cur.execute(f"ALTER TABLE {table} ADD COLUMN {col_safe} TEXT")
+            if cur.fetchone()['n']==0:
+                name = "`condition`" if col.lower()=="condition" else f"`{col}`"
+                cur.execute(f"ALTER TABLE {table} ADD COLUMN {name} TEXT")
 
-        # Handle image upload if present and allowed
+        # handle image upload
         if img and allowed_file(img.filename):
-            # Ensure image_url column exists
+            # ensure image_url exists
             cur.execute(
-                """
-                SELECT COUNT(*) AS n
-                  FROM INFORMATION_SCHEMA.COLUMNS
-                 WHERE TABLE_SCHEMA=%s
-                   AND TABLE_NAME=%s
-                   AND COLUMN_NAME='image_url'
-                """,
-                (DB_NAME, table),
+                """SELECT COUNT(*) AS n FROM INFORMATION_SCHEMA.COLUMNS
+                   WHERE TABLE_SCHEMA=%s AND TABLE_NAME=%s AND COLUMN_NAME='image_url'""",
+                (DB_NAME, table)
             )
-            if cur.fetchone()["n"] == 0:
+            if cur.fetchone()['n']==0:
                 cur.execute(f"ALTER TABLE {table} ADD COLUMN image_url TEXT")
-
-            # Upload and append to attrs
             filename = secure_filename(img.filename)
-            attrs["image_url"] = upload_to_gcs(img, filename)
+            attrs['image_url'] = upload_to_gcs(img, filename)
 
-        # Build and execute the INSERT
-        columns      = ", ".join([f"`{c}`" if c.lower()=="condition" else c for c in attrs])
-        placeholders = ", ".join(["%s"] * len(attrs))
+        # insert record
+        cols = ", ".join([f"`{c}`" if c.lower()=="condition" else c for c in attrs])
+        phs  = ", ".join(["%s"]*len(attrs))
         cur.execute(
-            f"INSERT INTO {table} ({columns}) VALUES ({placeholders})",
+            f"INSERT INTO {table} ({cols}) VALUES ({phs})",
             list(attrs.values())
         )
 
-        flash("Item listed successfully!", "success")
-        return redirect(url_for("show_sections"))
+        flash("Item listed successfully!","success")
+        return redirect(url_for('show_sections'))
 
-    # GET: show the create form
-    cur.execute("SELECT id, name FROM categories")
-    categories = cur.fetchall()
-    return render_template("create_listing.html", categories=categories)
+    # GET -> show form
+    cur.execute("SELECT id,name FROM categories")
+    cats = cur.fetchall()
+    return render_template('create_listing.html', categories=cats)
 
-@app.route("/visitor")
+@app.route('/visitor')
 def visitor():
-    return redirect(url_for("show_sections"))
+    return redirect(url_for('show_sections'))
 
 # --------------------------------------------------------------------------- #
-# Run                                                                         #
+# Main                                                                       #
 # --------------------------------------------------------------------------- #
 
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=80, debug=False)
+if __name__=='__main__':
+    app.run(host='0.0.0.0', port=80, debug=False)
