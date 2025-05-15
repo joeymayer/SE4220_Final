@@ -121,3 +121,9 @@ resource "google_storage_bucket_iam_member" "bucket_writer" {
   role   = "roles/storage.objectCreator"
   member = "serviceAccount:${google_service_account.vm_service_account.email}"
 }
+
+resource "google_storage_bucket_iam_member" "bucket_public_view" {
+  bucket = google_storage_bucket.images.name
+  role   = "roles/storage.objectViewer"
+  member = "allUsers"
+}
