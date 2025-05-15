@@ -109,8 +109,15 @@ resource "google_project_iam_member" "sa_logs_writer" {
   member  = "serviceAccount:${google_service_account.vm_service_account.email}"
 }
 
+resource "google_storage_bucket" "images" {
+  name                       = var.bucket_name
+  location                   = var.region         # same region as everything else
+  uniform_bucket_level_access = true
+}
+
+# Allow only object creation (no delete)
 resource "google_storage_bucket_iam_member" "bucket_writer" {
-  bucket = var.bucket_name
-  role   = "roles/storage.objectCreator"   # enough to upload, not delete
+  bucket = google_storage_bucket.images.name
+  role   = "roles/storage.objectCreator"
   member = "serviceAccount:${google_service_account.vm_service_account.email}"
 }

@@ -30,7 +30,7 @@ resource "google_compute_instance" "web_vm" {
     db_user                  = var.db_user
     db_pass                  = var.db_password
     instance_connection_name = google_sql_database_instance.db_instance.connection_name
-    bucket_name              = var.bucket_name            
+    bucket_name              = var.bucket_name       
   }
 )
   depends_on = [google_sql_database_instance.db_instance]

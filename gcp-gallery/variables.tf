@@ -79,8 +79,8 @@ variable "db_password" {
   sensitive   = true
 }
 
-variable "bucket_name" {
-  description = "GCS bucket for listing images"
+ariable "bucket_name" {
+  description = "GCS bucket for gallery image uploads"
   type        = string
-  default     = "se4220-project5.appspot.com"
+  default     = "se4220-gallery-images"   
 }
