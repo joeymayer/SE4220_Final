@@ -171,56 +171,81 @@ def item_detail(category, item_id):
 
 @app.route("/create", methods=["GET", "POST"])
 def create_listing():
+    # Redirect anonymous users to login
     if "username" not in session:
         return redirect(url_for("login"))
 
     cur = get_db().cursor()
 
-    if request.method == "POST":
-        category_id = int(request.form["category_id"])
-        table = CATEGORY_TABLE_MAP.get(category_id) or abort(400)
+    # Always grab the file object (might be None)
+    img = request.files.get("image")
 
+    if request.method == "POST":
+        # Get the table for this category
+        try:
+            category_id = int(request.form["category_id"])
+            table = CATEGORY_TABLE_MAP[category_id]
+        except (KeyError, ValueError):
+            flash("Invalid category.", "error")
+            return redirect(url_for("create_listing"))
+
+        # Extract dynamic attributes prefixed by "attr_"
         attrs = {k[5:]: v for k, v in request.form.items() if k.startswith("attr_")}
         if not attrs:
             flash("No attributes provided.", "error")
             return redirect(url_for("create_listing"))
 
-        # --- Ensure all attr columns exist (MySQL 5.7 safe) -----------------
+        # Ensure each attribute column exists (MySQL 5.7 safe check)
         for col in attrs:
             cur.execute(
-                """SELECT COUNT(*) AS n FROM INFORMATION_SCHEMA.COLUMNS
-                   WHERE TABLE_SCHEMA=%s AND TABLE_NAME=%s AND COLUMN_NAME=%s""",
+                """
+                SELECT COUNT(*) AS n
+                  FROM INFORMATION_SCHEMA.COLUMNS
+                 WHERE TABLE_SCHEMA=%s
+                   AND TABLE_NAME=%s
+                   AND COLUMN_NAME=%s
+                """,
                 (DB_NAME, table, col),
             )
             if cur.fetchone()["n"] == 0:
                 col_safe = "`condition`" if col.lower() == "condition" else f"`{col}`"
                 cur.execute(f"ALTER TABLE {table} ADD COLUMN {col_safe} TEXT")
 
-        # Image upload (optional)
-        img = request.files.get("image")
+        # Handle image upload if present and allowed
         if img and allowed_file(img.filename):
+            # Ensure image_url column exists
             cur.execute(
-                """SELECT COUNT(*) AS n FROM INFORMATION_SCHEMA.COLUMNS
-                   WHERE TABLE_SCHEMA=%s AND TABLE_NAME=%s AND COLUMN_NAME='image_url'""",
+                """
+                SELECT COUNT(*) AS n
+                  FROM INFORMATION_SCHEMA.COLUMNS
+                 WHERE TABLE_SCHEMA=%s
+                   AND TABLE_NAME=%s
+                   AND COLUMN_NAME='image_url'
+                """,
                 (DB_NAME, table),
             )
             if cur.fetchone()["n"] == 0:
                 cur.execute(f"ALTER TABLE {table} ADD COLUMN image_url TEXT")
-            url = upload_to_gcs(img, secure_filename(img.filename))
-            attrs["image_url"] = url
 
-        # Build and execute INSERT
-        cols      = ", ".join([f"`{c}`" if c.lower()=="condition" else c for c in attrs])
+            # Upload and append to attrs
+            filename = secure_filename(img.filename)
+            attrs["image_url"] = upload_to_gcs(img, filename)
+
+        # Build and execute the INSERT
+        columns      = ", ".join([f"`{c}`" if c.lower()=="condition" else c for c in attrs])
         placeholders = ", ".join(["%s"] * len(attrs))
         cur.execute(
-            f"INSERT INTO {table} ({cols}) VALUES ({placeholders})",
-            list(attrs.values()),
+            f"INSERT INTO {table} ({columns}) VALUES ({placeholders})",
+            list(attrs.values())
         )
+
         flash("Item listed successfully!", "success")
         return redirect(url_for("show_sections"))
 
+    # GET: show the create form
     cur.execute("SELECT id, name FROM categories")
-    return render_template("create_listing.html", categories=cur.fetchall())
+    categories = cur.fetchall()
+    return render_template("create_listing.html", categories=categories)
 
 @app.route("/visitor")
 def visitor():
