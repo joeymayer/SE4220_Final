@@ -135,7 +135,7 @@ resource "google_storage_bucket_iam_member" "allusers_reader" {
 
 resource "google_storage_bucket" "images" {
   name          = "se4220-gallery-images"      # must be globally unique
-  location      = US                   # e.g. us-central1
+  location      = "US"                   # e.g. us-central1
   uniform_bucket_level_access = true
   force_destroy = true                         # auto-delete objects on destroy
 }
