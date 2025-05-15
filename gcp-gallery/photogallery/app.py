@@ -19,7 +19,7 @@ DB_NAME = os.getenv("DB_NAME", "gallery")
 DB_USER = os.getenv("DB_USER")
 DB_PASS = os.getenv("DB_PASS")
 
-GCS_BUCKET = "se4220-project5.appspot.com"
+GCS_BUCKET = os.getenv("GCS_BUCKET")
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif"}
 
 app = Flask(__name__)
