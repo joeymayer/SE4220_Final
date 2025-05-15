@@ -210,11 +210,30 @@ def create_listing():
         # Ensure columns exist (TEXT type)
         for col in attrs.keys():
             col_safe = "`condition`" if col.lower() == "condition" else f"`{col}`"
-            try:
+
+            cur.execute(
+                """
+                SELECT COUNT(*)
+                  FROM INFORMATION_SCHEMA.COLUMNS
+                 WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s AND COLUMN_NAME = %s
+                """,
+                (DB_NAME, table, col),
+            )
+            if cur.fetchone()["COUNT(*)"] == 0:
                 cur.execute(f"ALTER TABLE {table} ADD COLUMN {col_safe} TEXT")
-            except pymysql.err.OperationalError as e:
-                if e.args[0] != 1060:
-                    raise
+
+        # ensure image_url column once
+        if img and allowed_file(img.filename):
+            cur.execute(
+                """
+                SELECT COUNT(*)
+                  FROM INFORMATION_SCHEMA.COLUMNS
+                 WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s AND COLUMN_NAME = 'image_url'
+                """,
+                (DB_NAME, table),
+            )
+            if cur.fetchone()["COUNT(*)"] == 0:
+                cur.execute(f"ALTER TABLE {table} ADD COLUMN image_url TEXT")
 
         columns = ", ".join(
             [f"`{c}`" if c.lower() == "condition" else c for c in attrs.keys()]

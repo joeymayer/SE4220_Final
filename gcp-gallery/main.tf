@@ -138,3 +138,9 @@ resource "google_storage_bucket_iam_member" "allusers_reader" {
   role   = "roles/storage.objectViewer"
   member = "allUsers"
 }
+
+resource "google_storage_bucket_iam_member" "sa_bucket_writer" {
+  bucket = "se4220-project5.appspot.com"               # <-- your bucket
+  role   = "roles/storage.objectCreator"               # create / overwrite
+  member = "serviceAccount:${google_service_account.vm_service_account.email}"
+}
